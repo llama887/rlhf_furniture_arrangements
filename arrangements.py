@@ -49,8 +49,8 @@ def json_to_embeddings(
         embedding: Dict[int, str], item: str, current_index: int
     ) -> Tuple[Dict[int, str], int]:
         if item not in embedding.values():
-            embedding[current_index] = item
             current_index += 1
+            embedding[current_index] = item
         return embedding, current_index
 
     with open(file_path, "r") as file:
@@ -59,7 +59,7 @@ def json_to_embeddings(
         -1: {"Style": -1, "Width": 0, "Depth": 0, "Height": 0}
     }  # used for padding
     id_embedding, style_embedding = {-1: "NULL"}, {-1: "NULL"}
-    max_id_index, max_style_index = 0, 0
+    max_id_index, max_style_index = -1, -1
     max_width, max_depth, max_height = 0, 0, 0
 
     for item in data:
@@ -248,11 +248,11 @@ def reward(
     for furniture in arrangement["Furniture"]:
         if (furniture["ID"] == -1) or (furniture["Style"] == -1):
             break
-        if check_collisions(furniture, arrangement["Furniture"]):
-            total_reward -= 1
+        # if check_collisions(furniture, arrangement["Furniture"]):
+        #     total_reward -= 1
         furniture_location = [furniture["X"], furniture["Y"]]
-        total_reward += (int(furniture["Style"] == room_style) + 1) / distance(
-            room_center, furniture_location
+        total_reward += (int(furniture["Style"] == room_style) + 1) / (distance(
+            room_center, furniture_location) + 1
         )
     return total_reward
 
@@ -305,6 +305,6 @@ if __name__ == "__main__":
     max_style_index = data[2]["max_style_index"]
     indexed_data = data[5]
     arrangements = generate_arrangements(
-        indexed_data, max_id_index, max_style_index, 100, 144, 144, 120, 5
+        indexed_data, max_id_index, max_style_index, 10, 144, 144, 120, 5
     )
-    generate_database(arrangements=arrangements)
+    # generate_database(arrangements=arrangements)

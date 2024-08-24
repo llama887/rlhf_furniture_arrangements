@@ -9,6 +9,8 @@ import numpy as np
 from gymnasium import spaces
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_checker import check_env
+import torch
+
 
 from arrangements import (
     MIN_FURNITURE_STEP,
@@ -25,64 +27,66 @@ class ArrangementEnv(gym.Env):
 
     def __init__(
         self,
-        embeddings_json,
+        training_data_json,
         max_room_width,
         max_room_length,
-        max_room_height,
-        max_furniture_number,
+        max_room_height
     ):
         super(ArrangementEnv, self).__init__()
-        with open(embeddings_json, "r") as f:
-            self.furniture_embeddings = json.load(f)
-        self.max_id_index = self.furniture_embeddings[0]["max_id_index"]
-        self.max_style_index = self.furniture_embeddings[2]["max_style_index"]
         self.max_room_width = max_room_width
         self.max_room_length = max_room_length
         self.max_room_height = max_room_height
-        self.max_furniture_number = max_furniture_number
-        self.max_furniture_width = self.furniture_embeddings[4]["max_width"]
-        self.max_furniture_depth = self.furniture_embeddings[4]["max_depth"]
-        self.max_furniture_height = self.furniture_embeddings[4]["max_height"]
+        with open(training_data_json, "r") as f:
+            self.training_data_json = json.load(f)
+        self.max_room_style = self.training_data_json["Max Indices"]["Room Style"]
+        self.max_room_type = self.training_data_json["Max Indices"]["Room Type"]
+        self.max_furniture_id = self.training_data_json["Max Indices"]["Furniture ID"]
+        self.max_furniture_style = self.training_data_json["Max Indices"]["Furniture Style"]
+        self.max_furniture_width = self.training_data_json["Max Indices"]["Furniture Width"]
+        self.max_furniture_depth = self.training_data_json["Max Indices"]["Furniture Depth"]
+        self.max_furniture_height = self.training_data_json["Max Indices"]["Furniture Height"]
+        self.max_furniture_per_room = self.training_data_json["Max Indices"]["Furniture Per Room"]
         self.room_observation = None
         self.furniture_observation = None
         self.current_furniture_number = 0
         self.reward = 0
         self.truncated = False
         self.terminated = False
-        # Action space: [Terminate episode, Furniture ID, X Position, Y Position, Angle]
+        # Action space: [Terminate episode, X Position, Y Position, Angle]
+        # Action space moves the furniture at the current_furniture_number to the given position
         self.action_space = spaces.MultiDiscrete(
             [
                 2,  # Terminate episode (0: continue, 1: terminate)
-                self.max_id_index,  # Furniture ID
-                max_room_width // MIN_FURNITURE_STEP,  # X Position
-                max_room_length // MIN_FURNITURE_STEP,  # Y Position
-                360 // MIN_THETA_STEP,  # Angle
+                max_room_width // MIN_FURNITURE_STEP + 1,  # X Position
+                max_room_length // MIN_FURNITURE_STEP + 1,  # Y Position
+                360 // MIN_THETA_STEP + 1,  # Angle
             ],
             dtype=int,
         )
-        # Room properties: [Width, Length, Height, Style]
+        # Room properties: [Width, Length, Height, Style, Type]
         # Each furniture item: [ID, Style, Width, Depth, Height, X, Y, Theta]
         self.observation_space = spaces.MultiDiscrete(
             [
-                max_room_width - MIN_ROOM_WIDTH,  # Width
-                max_room_length - MIN_ROOM_WIDTH,  # Length
-                max_room_height - MIN_ROOM_WIDTH,  # Height
-                self.max_style_index,  # Style (no +1 since the rooms style is always defined)
+                max_room_width + 1 - MIN_ROOM_WIDTH,  # Width
+                max_room_length + 1 - MIN_ROOM_WIDTH,  # Length
+                max_room_height + 1 - MIN_ROOM_WIDTH,  # Height
+                self.max_room_style + 1,  # Style (+1 since the index is non_inclusive)
+                self.max_room_type + 1, # Room Type (Livingroom, Bedroom etc.) (+1 since the index is non_inclusive)
             ]
             + (
                 [
-                    self.max_id_index
-                    + 1,  # ID (+1 since -1 is used for empty slot) -1 -> 0
-                    self.max_style_index
-                    + 1,  # Style (+1 since -1 is used for empty slot) -1 -> 0
-                    self.max_furniture_width,  # Width
-                    self.max_furniture_depth,  # Depth
-                    self.max_furniture_height,  # Height
-                    max_room_width // MIN_FURNITURE_STEP,  # X Position
-                    max_room_length // MIN_FURNITURE_STEP,  # Y Position
-                    360 // MIN_THETA_STEP,  # Angle
+                    self.max_furniture_id
+                    + 1 + 1,  # ID (+1 since -1 is used for empty slot) -1 -> 0; addition +1 for noninclusivity
+                    self.max_furniture_style
+                    + 1 + 1,  # Style (+1 since -1 is used for empty slot) -1 -> 0; addition +1 for noninclusivity
+                    self.max_furniture_width + 1,  # Width
+                    self.max_furniture_depth + 1,  # Depth
+                    self.max_furniture_height + 1,  # Height
+                    max_room_width // MIN_FURNITURE_STEP + 1,  # X Position
+                    max_room_length // MIN_FURNITURE_STEP + 1,  # Y Position
+                    360 // MIN_THETA_STEP + 1,  # Angle
                 ]
-                * max_furniture_number  # Repeat for each furniture item
+                * self.max_furniture_per_room  # Repeat for each furniture item
             ),
             dtype=int,
         )
@@ -90,11 +94,12 @@ class ArrangementEnv(gym.Env):
     def step(self, action):
         self.terminated = bool(action[0] == 1)
         self.truncated = bool(
-            self.current_furniture_number >= self.max_furniture_number
+            (np.any(self.current_furniture_number >= self.max_furniture_per_room)) or 
+            (np.any(self.furniture_observation[self.current_furniture_number] == -1))
         )
+
         if (
-            action[0] == 1
-            or self.current_furniture_number >= self.max_furniture_number
+            self.terminated or self.truncated
         ):
             info = {}
             return (
@@ -109,38 +114,20 @@ class ArrangementEnv(gym.Env):
                 self.truncated,
                 info,
             )
-        furniture_id = action[
-            1
-        ]  # no +1 since -1 is not legal in the action space
-        furniture_style = self.furniture_embeddings[5][str(furniture_id)][
-            "Style"
-        ]  # no +1 since -1 is not legal in the action space
-        furniture_width = self.furniture_embeddings[5][str(furniture_id)][
-            "Width"
-        ]
-        furniture_depth = self.furniture_embeddings[5][str(furniture_id)][
-            "Depth"
-        ]
-        furniture_height = self.furniture_embeddings[5][str(furniture_id)][
-            "Height"
-        ]
-        furniture_x = action[2]
-        furniture_y = action[3]
-        furniture_theta = action[4]
-        self.furniture_observation[self.current_furniture_number] = np.array(
-            [
-                furniture_id
-                + 1,  # +1 converts from the action space to the observation space
-                furniture_style
-                + 1,  # +1 converts from the action space to the observation space
-                furniture_width,
-                furniture_depth,
-                furniture_height,
-                furniture_x,
-                furniture_y,
-                furniture_theta,
-            ]
-        )
+            
+        furniture_x = action[1]
+        furniture_y = action[2]
+        furniture_theta = action[3]
+        furniture_x_index_in_observation_space = 5
+        furniture_y_index_in_observation_space = 6
+        furniture_theta_index_in_observation_space = 7
+        self.furniture_observation[self.current_furniture_number][furniture_x_index_in_observation_space] = furniture_x
+        self.furniture_observation[self.current_furniture_number][furniture_y_index_in_observation_space] = furniture_y
+        self.furniture_observation[self.current_furniture_number][furniture_theta_index_in_observation_space] = furniture_theta
+        assert 0 <= furniture_x < self.max_room_width//MIN_FURNITURE_STEP + 1, f"furniture x:{furniture_x} is larger than the max: {self.max_room_width//MIN_FURNITURE_STEP + 1}"
+        assert 0 <= furniture_y < self.max_room_length//MIN_FURNITURE_STEP + 1, f"furniture y:{furniture_y} is larger than the max: {self.max_room_length//MIN_FURNITURE_STEP + 1}"
+        assert 0 <= furniture_theta < 360//MIN_THETA_STEP + 1, f"furniture theta:{furniture_theta} is larger than the max: {360//MIN_THETA_STEP + 1}"
+        
         self.current_furniture_number += 1
         room_observations_dictionary = {
             "Width": self.room_observation[0] + MIN_ROOM_WIDTH,
@@ -149,6 +136,7 @@ class ArrangementEnv(gym.Env):
             "Style": self.room_observation[
                 3
             ],  # no -1 since the room style is always defined
+            "Type": self.room_observation[4]
         }
         furniture_observations_dictionary = []
         for f in self.furniture_observation:
@@ -170,7 +158,10 @@ class ArrangementEnv(gym.Env):
             "Room": room_observations_dictionary,
             "Furniture": furniture_observations_dictionary,
         }
-        self.reward += reward(arrangement)
+        arrangement_reward = reward(arrangement)
+        assert(not np.isnan(arrangement_reward))
+        print("reward:", arrangement_reward)
+        self.reward += arrangement_reward
         info = {}
         return (
             np.concatenate(
@@ -191,17 +182,47 @@ class ArrangementEnv(gym.Env):
         room_width = randint(0, self.max_room_width - MIN_ROOM_WIDTH)
         room_length = randint(0, self.max_room_length - MIN_ROOM_LENGTH)
         room_height = randint(0, self.max_room_height - MIN_ROOM_HEIGHT)
-        style = randint(1, self.max_style_index)
+        arrangements = self.training_data_json["Arrangements"]
+        current_arrangement = random.choice(arrangements)
+        style = current_arrangement["Room"]["Style"]
+        type = current_arrangement["Room"]["Type"]
+        furnitures = current_arrangement["Furniture"]
+        # initializing positions to the furnitures
+        furnitures = [{**furniture, "X": 0, "Y": 0, "Theta": 0} for furniture in furnitures]
+        assert len(furnitures) == self.max_furniture_per_room, f"the size of the selected furnitures: {furnitures} does not match the max furniture per room: {self.max_furniture_per_room}"
+        assert furnitures[0]["ID"] != -1, f"the first value in the selected furnitures: {furnitures} is -1"
+                #         [
+                #     self.max_furniture_id
+                #     + 1 + 1,  # ID (+1 since -1 is used for empty slot) -1 -> 0; addition +1 for noninclusivity
+                #     self.max_furniture_style
+                #     + 1 + 1,  # Style (+1 since -1 is used for empty slot) -1 -> 0; addition +1 for noninclusivity
+                #     self.max_furniture_width + 1,  # Width
+                #     self.max_furniture_depth + 1,  # Depth
+                #     self.max_furniture_height + 1,  # Height
+                #     max_room_width // MIN_FURNITURE_STEP + 1,  # X Position
+                #     max_room_length // MIN_FURNITURE_STEP + 1,  # Y Position
+                #     360 // MIN_THETA_STEP + 1,  # Angle
+                # ]
+        # 0 <= furniture_x < self.max_room_width//MIN_FURNITURE_STEP + 1, f"furniture x:{furniture_x} is larger than the max: {self.max_room_width//MIN_FURNITURE_STEP + 1}"
+        for f in furnitures:
+            assert 0 <= f["ID"] < self.max_furniture_id + 1 + 1, f"furniture id: {f['ID']} is larger than the max: {self.max_furniture_id + 1 + 1}"
+            assert 0 <= f["Style"] < self.max_furniture_style + 1 + 1, f"furniture style: {f['Style']} is larger than the max: {self.max_furniture_style + 1 + 1}"
+            assert 0 <= f["Width"] < self.max_furniture_width + 1, f"furniture width: {f['Width']} is larger than the max: {self.max_furniture_width}"
+            assert 0 <= f["Depth"] < self.max_furniture_depth + 1, f"furniture depth: {f['Depth']} is larger than the max: {self.max_furniture_depth}"
+            assert 0 <= f["Height"] < self.max_furniture_height + 1, f"furniture height: {f['Height']} is larger than the max: {self.max_furniture_height}"
+
+
+        
         self.current_furniture_number = 0
         self.reward = 0
         self.room_observation = np.array(
-            [room_width, room_length, room_height, style]
+            [room_width, room_length, room_height, style, type]
         )
-        self.furniture_observation = np.zeros(
-            (self.max_furniture_number, 8), dtype=int
+        self.furniture_observation = np.array(
+            [list(furniture.values()) for furniture in furnitures], dtype=int
         )
-        self.furniture_observation[:, :2] = 0
         info = {}
+        print(f"INITIAL OBSERVATION: {np.concatenate((self.room_observation, self.furniture_observation.flatten()))}")
         return (
             np.concatenate(
                 (self.room_observation, self.furniture_observation.flatten())
@@ -211,7 +232,12 @@ class ArrangementEnv(gym.Env):
 
 
 if __name__ == "__main__":
-    env = ArrangementEnv("embeddings.json", 144, 144, 120, 1)
+    # file check
+    with open("selections.json", "r") as f:
+        embeddings = json.load(f)
+    assert embeddings is not None, "Embeddings failed to load"
+
+    env = ArrangementEnv("selections.json", 144, 144, 120)
     check_env(env)
     models_path = f"models/{int(time.time())}/"
     log_path = f"logs/{int(time.time())}/"

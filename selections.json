@@ -1,0 +1,159 @@
+{
+    "Max Indices": {
+        "Room Style": 17,
+        "Room Type": 2,
+        "Furniture ID": 72070,
+        "Furniture Style": 75,
+        "Furniture Width": 3105,
+        "Furniture Depth": 1515,
+        "Furniture Height": 17975,
+        "Furniture Per Room": 3
+    },
+    "Arrangements": [
+        {
+            "Room": {
+                "Style": 1,
+                "Type": 0
+            },
+            "Furniture": [
+                {
+                    "ID": 43038,
+                    "Style": 60,
+                    "Width": 54,
+                    "Depth": 75,
+                    "Height": 20
+                },
+                {
+                    "ID": 57493,
+                    "Style": 69,
+                    "Width": 14,
+                    "Depth": 14,
+                    "Height": 34
+                },
+                {
+                    "ID": 27251,
+                    "Style": 52,
+                    "Width": 17,
+                    "Depth": 17,
+                    "Height": 18
+                }
+            ]
+        },
+        {
+            "Room": {
+                "Style": 7,
+                "Type": 0
+            },
+            "Furniture": [
+                {
+                    "ID": 60171,
+                    "Style": 70,
+                    "Width": 60,
+                    "Depth": 80,
+                    "Height": 22
+                },
+                {
+                    "ID": 44330,
+                    "Style": 61,
+                    "Width": 17,
+                    "Depth": 23,
+                    "Height": 4
+                },
+                {
+                    "ID": 46218,
+                    "Style": 61,
+                    "Width": 46,
+                    "Depth": 22,
+                    "Height": 36
+                }
+            ]
+        },
+        {
+            "Room": {
+                "Style": 5,
+                "Type": 1
+            },
+            "Furniture": [
+                {
+                    "ID": 41125,
+                    "Style": 58,
+                    "Width": 8,
+                    "Depth": 8,
+                    "Height": 16
+                },
+                {
+                    "ID": 63559,
+                    "Style": 71,
+                    "Width": 84,
+                    "Depth": 40,
+                    "Height": 35
+                },
+                {
+                    "ID": 8549,
+                    "Style": 36,
+                    "Width": 42,
+                    "Depth": 42,
+                    "Height": 30
+                }
+            ]
+        },
+        {
+            "Room": {
+                "Style": 10,
+                "Type": 1
+            },
+            "Furniture": [
+                {
+                    "ID": 872,
+                    "Style": 22,
+                    "Width": 17,
+                    "Depth": 9,
+                    "Height": 30
+                },
+                {
+                    "ID": 35780,
+                    "Style": 56,
+                    "Width": 78,
+                    "Depth": 32,
+                    "Height": 49
+                },
+                {
+                    "ID": 29376,
+                    "Style": 52,
+                    "Width": 24,
+                    "Depth": 30,
+                    "Height": 33
+                }
+            ]
+        },
+        {
+            "Room": {
+                "Style": 2,
+                "Type": 0
+            },
+            "Furniture": [
+                {
+                    "ID": 15623,
+                    "Style": 73,
+                    "Width": 38,
+                    "Depth": 75,
+                    "Height": 18
+                },
+                {
+                    "ID": 45927,
+                    "Style": 61,
+                    "Width": 19,
+                    "Depth": 19,
+                    "Height": 36
+                },
+                {
+                    "ID": 11756,
+                    "Style": 41,
+                    "Width": 16,
+                    "Depth": 12,
+                    "Height": 36
+                }
+            ]
+        }
+    ]
+}
