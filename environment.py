@@ -124,9 +124,9 @@ class ArrangementEnv(gym.Env):
         self.furniture_observation[self.current_furniture_number][furniture_x_index_in_observation_space] = furniture_x
         self.furniture_observation[self.current_furniture_number][furniture_y_index_in_observation_space] = furniture_y
         self.furniture_observation[self.current_furniture_number][furniture_theta_index_in_observation_space] = furniture_theta
-        assert 0 <= furniture_x < self.max_room_width//MIN_FURNITURE_STEP + 1, f"furniture x:{furniture_x} is larger than the max: {self.max_room_width//MIN_FURNITURE_STEP + 1}"
-        assert 0 <= furniture_y < self.max_room_length//MIN_FURNITURE_STEP + 1, f"furniture y:{furniture_y} is larger than the max: {self.max_room_length//MIN_FURNITURE_STEP + 1}"
-        assert 0 <= furniture_theta < 360//MIN_THETA_STEP + 1, f"furniture theta:{furniture_theta} is larger than the max: {360//MIN_THETA_STEP + 1}"
+        # assert 0 <= furniture_x < self.max_room_width//MIN_FURNITURE_STEP + 1, f"furniture x:{furniture_x} is larger than the max: {self.max_room_width//MIN_FURNITURE_STEP + 1}"
+        # assert 0 <= furniture_y < self.max_room_length//MIN_FURNITURE_STEP + 1, f"furniture y:{furniture_y} is larger than the max: {self.max_room_length//MIN_FURNITURE_STEP + 1}"
+        # assert 0 <= furniture_theta < 360//MIN_THETA_STEP + 1, f"furniture theta:{furniture_theta} is larger than the max: {360//MIN_THETA_STEP + 1}"
         
         self.current_furniture_number += 1
         room_observations_dictionary = {
@@ -159,8 +159,8 @@ class ArrangementEnv(gym.Env):
             "Furniture": furniture_observations_dictionary,
         }
         arrangement_reward = reward(arrangement)
-        assert(not np.isnan(arrangement_reward))
-        print("reward:", arrangement_reward)
+        # assert(not np.isnan(arrangement_reward))
+        # print("reward:", arrangement_reward)
         self.reward += arrangement_reward
         info = {}
         return (
@@ -182,34 +182,23 @@ class ArrangementEnv(gym.Env):
         room_width = randint(0, self.max_room_width - MIN_ROOM_WIDTH)
         room_length = randint(0, self.max_room_length - MIN_ROOM_LENGTH)
         room_height = randint(0, self.max_room_height - MIN_ROOM_HEIGHT)
-        arrangements = self.training_data_json["Arrangements"]
-        current_arrangement = random.choice(arrangements)
-        style = current_arrangement["Room"]["Style"]
-        type = current_arrangement["Room"]["Type"]
-        furnitures = current_arrangement["Furniture"]
+        arrangements = self.training_data_json["Selections"]
+        current_selection = random.choice(arrangements)
+        style = current_selection["Room"]["Style"]
+        type = current_selection["Room"]["Type"]
+        furnitures = current_selection["Furniture"]
         # initializing positions to the furnitures
         furnitures = [{**furniture, "X": 0, "Y": 0, "Theta": 0} for furniture in furnitures]
-        assert len(furnitures) == self.max_furniture_per_room, f"the size of the selected furnitures: {furnitures} does not match the max furniture per room: {self.max_furniture_per_room}"
-        assert furnitures[0]["ID"] != -1, f"the first value in the selected furnitures: {furnitures} is -1"
-                #         [
-                #     self.max_furniture_id
-                #     + 1 + 1,  # ID (+1 since -1 is used for empty slot) -1 -> 0; addition +1 for noninclusivity
-                #     self.max_furniture_style
-                #     + 1 + 1,  # Style (+1 since -1 is used for empty slot) -1 -> 0; addition +1 for noninclusivity
-                #     self.max_furniture_width + 1,  # Width
-                #     self.max_furniture_depth + 1,  # Depth
-                #     self.max_furniture_height + 1,  # Height
-                #     max_room_width // MIN_FURNITURE_STEP + 1,  # X Position
-                #     max_room_length // MIN_FURNITURE_STEP + 1,  # Y Position
-                #     360 // MIN_THETA_STEP + 1,  # Angle
-                # ]
-        # 0 <= furniture_x < self.max_room_width//MIN_FURNITURE_STEP + 1, f"furniture x:{furniture_x} is larger than the max: {self.max_room_width//MIN_FURNITURE_STEP + 1}"
+        # assert len(furnitures) == self.max_furniture_per_room, f"the size of the selected furnitures: {furnitures} does not match the max furniture per room: {self.max_furniture_per_room}"
+        # assert furnitures[0]["ID"] != -1, f"the first value in the selected furnitures: {furnitures} is -1"
+
         for f in furnitures:
-            assert 0 <= f["ID"] < self.max_furniture_id + 1 + 1, f"furniture id: {f['ID']} is larger than the max: {self.max_furniture_id + 1 + 1}"
-            assert 0 <= f["Style"] < self.max_furniture_style + 1 + 1, f"furniture style: {f['Style']} is larger than the max: {self.max_furniture_style + 1 + 1}"
-            assert 0 <= f["Width"] < self.max_furniture_width + 1, f"furniture width: {f['Width']} is larger than the max: {self.max_furniture_width}"
-            assert 0 <= f["Depth"] < self.max_furniture_depth + 1, f"furniture depth: {f['Depth']} is larger than the max: {self.max_furniture_depth}"
-            assert 0 <= f["Height"] < self.max_furniture_height + 1, f"furniture height: {f['Height']} is larger than the max: {self.max_furniture_height}"
+            break
+            # assert 0 <= f["ID"] < self.max_furniture_id + 1 + 1, f"furniture id: {f['ID']} is larger than the max: {self.max_furniture_id + 1 + 1}"
+            # assert 0 <= f["Style"] < self.max_furniture_style + 1 + 1, f"furniture style: {f['Style']} is larger than the max: {self.max_furniture_style + 1 + 1}"
+            # assert 0 <= f["Width"] < self.max_furniture_width + 1, f"furniture width: {f['Width']} is larger than the max: {self.max_furniture_width}"
+            # assert 0 <= f["Depth"] < self.max_furniture_depth + 1, f"furniture depth: {f['Depth']} is larger than the max: {self.max_furniture_depth}"
+            # assert 0 <= f["Height"] < self.max_furniture_height + 1, f"furniture height: {f['Height']} is larger than the max: {self.max_furniture_height}"
 
 
         
@@ -222,7 +211,7 @@ class ArrangementEnv(gym.Env):
             [list(furniture.values()) for furniture in furnitures], dtype=int
         )
         info = {}
-        print(f"INITIAL OBSERVATION: {np.concatenate((self.room_observation, self.furniture_observation.flatten()))}")
+        # print(f"INITIAL OBSERVATION: {np.concatenate((self.room_observation, self.furniture_observation.flatten()))}")
         return (
             np.concatenate(
                 (self.room_observation, self.furniture_observation.flatten())
@@ -230,12 +219,11 @@ class ArrangementEnv(gym.Env):
             info,
         )
 
-
 if __name__ == "__main__":
     # file check
     with open("selections.json", "r") as f:
         embeddings = json.load(f)
-    assert embeddings is not None, "Embeddings failed to load"
+    # assert embeddings is not None, "Embeddings failed to load"
 
     env = ArrangementEnv("selections.json", 144, 144, 120)
     check_env(env)

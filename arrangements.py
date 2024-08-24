@@ -251,9 +251,7 @@ def reward(
         # if check_collisions(furniture, arrangement["Furniture"]):
         #     total_reward -= 1
         furniture_location = [furniture["X"], furniture["Y"]]
-        total_reward += (int(furniture["Style"] == room_style) + 1) / (distance(
-            room_center, furniture_location) + 1
-        )
+        total_reward += 1 / (distance(furniture_location, room_center) + 1)
     return total_reward
 
 
