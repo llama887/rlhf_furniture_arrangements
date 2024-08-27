@@ -9,7 +9,7 @@ import numpy as np
 from gymnasium import spaces
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_checker import check_env
-import torch
+from typing import Dict, List, Tuple, Union
 
 
 from arrangements import (
@@ -18,7 +18,6 @@ from arrangements import (
     MIN_ROOM_LENGTH,
     MIN_ROOM_WIDTH,
     MIN_THETA_STEP,
-    reward,
 )
 
 
@@ -27,25 +26,27 @@ class ArrangementEnv(gym.Env):
 
     def __init__(
         self,
-        training_data_json,
+        selections_directory,
         max_room_width,
         max_room_length,
         max_room_height
     ):
         super(ArrangementEnv, self).__init__()
+        self.selections_directory = selections_directory
         self.max_room_width = max_room_width
         self.max_room_length = max_room_length
         self.max_room_height = max_room_height
-        with open(training_data_json, "r") as f:
-            self.training_data_json = json.load(f)
-        self.max_room_style = self.training_data_json["Max Indices"]["Room Style"]
-        self.max_room_type = self.training_data_json["Max Indices"]["Room Type"]
-        self.max_furniture_id = self.training_data_json["Max Indices"]["Furniture ID"]
-        self.max_furniture_style = self.training_data_json["Max Indices"]["Furniture Style"]
-        self.max_furniture_width = self.training_data_json["Max Indices"]["Furniture Width"]
-        self.max_furniture_depth = self.training_data_json["Max Indices"]["Furniture Depth"]
-        self.max_furniture_height = self.training_data_json["Max Indices"]["Furniture Height"]
-        self.max_furniture_per_room = self.training_data_json["Max Indices"]["Furniture Per Room"]
+        with open(f"{selections_directory}/max_indices.json", "r") as f:
+            self.max_indices = json.load(f)
+        self.max_room_style = self.max_indices["Room Style"]
+        self.max_room_type = self.max_indices["Room Type"]
+        self.max_furniture_id = self.max_indices["Furniture ID"]
+        self.max_furniture_style = self.max_indices["Furniture Style"]
+        self.max_furniture_width = self.max_indices["Furniture Width"]
+        self.max_furniture_depth = self.max_indices["Furniture Depth"]
+        self.max_furniture_height = self.max_indices["Furniture Height"]
+        self.max_furniture_per_room = self.max_indices["Furniture Per Room"]
+        self.max_selection_number = self.max_indices["Number of Selections"]
         self.room_observation = None
         self.furniture_observation = None
         self.current_furniture_number = 0
@@ -128,7 +129,6 @@ class ArrangementEnv(gym.Env):
         # assert 0 <= furniture_y < self.max_room_length//MIN_FURNITURE_STEP + 1, f"furniture y:{furniture_y} is larger than the max: {self.max_room_length//MIN_FURNITURE_STEP + 1}"
         # assert 0 <= furniture_theta < 360//MIN_THETA_STEP + 1, f"furniture theta:{furniture_theta} is larger than the max: {360//MIN_THETA_STEP + 1}"
         
-        self.current_furniture_number += 1
         room_observations_dictionary = {
             "Width": self.room_observation[0] + MIN_ROOM_WIDTH,
             "Length": self.room_observation[1] + MIN_ROOM_LENGTH,
@@ -158,7 +158,8 @@ class ArrangementEnv(gym.Env):
             "Room": room_observations_dictionary,
             "Furniture": furniture_observations_dictionary,
         }
-        arrangement_reward = reward(arrangement)
+        arrangement_reward = reward(arrangement, self.current_furniture_number)
+        self.current_furniture_number += 1
         # assert(not np.isnan(arrangement_reward))
         # print("reward:", arrangement_reward)
         self.reward += arrangement_reward
@@ -182,11 +183,11 @@ class ArrangementEnv(gym.Env):
         room_width = randint(0, self.max_room_width - MIN_ROOM_WIDTH)
         room_length = randint(0, self.max_room_length - MIN_ROOM_LENGTH)
         room_height = randint(0, self.max_room_height - MIN_ROOM_HEIGHT)
-        arrangements = self.training_data_json["Selections"]
-        current_selection = random.choice(arrangements)
-        style = current_selection["Room"]["Style"]
-        type = current_selection["Room"]["Type"]
-        furnitures = current_selection["Furniture"]
+        with open (f"{self.selections_directory}/selection_{randint(1, self.max_selection_number)}.json", "r") as f:
+            selection = json.load(f)
+        style = selection["Room"]["Style"]
+        type = selection["Room"]["Type"]
+        furnitures = selection["Furniture"]
         # initializing positions to the furnitures
         furnitures = [{**furniture, "X": 0, "Y": 0, "Theta": 0} for furniture in furnitures]
         # assert len(furnitures) == self.max_furniture_per_room, f"the size of the selected furnitures: {furnitures} does not match the max furniture per room: {self.max_furniture_per_room}"
@@ -219,13 +220,26 @@ class ArrangementEnv(gym.Env):
             info,
         )
 
-if __name__ == "__main__":
-    # file check
-    with open("selections.json", "r") as f:
-        embeddings = json.load(f)
-    # assert embeddings is not None, "Embeddings failed to load"
+def reward(arrangement, current_furniture_index):
+    def distance(
+        point1: Tuple[float, float], point2: Tuple[float, float]
+    ) -> float:
+        return (
+            (point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2
+        ) ** 0.5
 
-    env = ArrangementEnv("selections.json", 144, 144, 120)
+    room_center = [
+        arrangement["Room"]["Width"] // 2,
+        arrangement["Room"]["Length"] // 2,
+    ]
+
+    current_furniture = arrangement["Furniture"][current_furniture_index]
+    current_furniture_position = [current_furniture["X"], current_furniture["Y"]]
+    return 1/(1+distance(current_furniture_position, room_center))
+
+if __name__ == "__main__":
+    # assert embeddings is not None, "Embeddings failed to load"
+    env = ArrangementEnv("./selections", 144, 144, 120)
     check_env(env)
     models_path = f"models/{int(time.time())}/"
     log_path = f"logs/{int(time.time())}/"
