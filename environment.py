@@ -174,16 +174,23 @@ class ArrangementEnv(gym.Env):
             info,
         )
 
-    def reset(self, seed=None):
+    def reset(self, seed=None, selection_file=None):
         super().reset(seed=seed)
         if seed is not None:
             np.random.seed(seed)
             random.seed(seed)
+        
         self.truncated = False
         room_width = randint(0, self.max_room_width - MIN_ROOM_WIDTH)
         room_length = randint(0, self.max_room_length - MIN_ROOM_LENGTH)
         room_height = randint(0, self.max_room_height - MIN_ROOM_HEIGHT)
-        with open (f"{self.selections_directory}/selection_{randint(1, self.max_selection_number)}.json", "r") as f:
+
+        # If a specific selection file is provided, use it. Otherwise, choose randomly.
+        if selection_file:
+            selection_path = os.path.join(self.selections_directory, selection_file)
+        else:
+            selection_path = os.path.join(self.selections_directory, f"selection_{randint(1, self.max_selection_number)}.json")
+        with open(selection_path, "r") as f:
             selection = json.load(f)
         style = selection["Room"]["Style"]
         type = selection["Room"]["Type"]
@@ -200,9 +207,6 @@ class ArrangementEnv(gym.Env):
             # assert 0 <= f["Width"] < self.max_furniture_width + 1, f"furniture width: {f['Width']} is larger than the max: {self.max_furniture_width}"
             # assert 0 <= f["Depth"] < self.max_furniture_depth + 1, f"furniture depth: {f['Depth']} is larger than the max: {self.max_furniture_depth}"
             # assert 0 <= f["Height"] < self.max_furniture_height + 1, f"furniture height: {f['Height']} is larger than the max: {self.max_furniture_height}"
-
-
-        
         self.current_furniture_number = 0
         self.reward = 0
         self.room_observation = np.array(
