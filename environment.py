@@ -225,21 +225,52 @@ class ArrangementEnv(gym.Env):
         )
 
 def reward(arrangement, current_furniture_index):
-    def distance(
-        point1: Tuple[float, float], point2: Tuple[float, float]
-    ) -> float:
-        return (
-            (point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2
-        ) ** 0.5
+        def is_collision(furniture1, furniture2):
+            # Bottom middle as the reference point for furniture1 (current furniture)
+            f1_x = furniture1["X"]
+            f1_y = furniture1["Y"]
+            f1_width = furniture1["Width"]
+            f1_depth = furniture1["Depth"]
 
-    room_center = [
-        arrangement["Room"]["Width"] // 2,
-        arrangement["Room"]["Length"] // 2,
-    ]
+            # Bottom middle as the reference point for furniture2 (other furniture)
+            f2_x = furniture2["X"]
+            f2_y = furniture2["Y"]
+            f2_width = furniture2["Width"]
+            f2_depth = furniture2["Depth"]
 
-    current_furniture = arrangement["Furniture"][current_furniture_index]
-    current_furniture_position = [current_furniture["X"], current_furniture["Y"]]
-    return 1/(1+distance(current_furniture_position, room_center))
+            # Check for overlap in the X and Y axes
+            overlap_x = abs(f1_x - f2_x) < (f1_width + f2_width) / 2
+            overlap_y = abs(f1_y - f2_y) < (f1_depth + f2_depth) / 2
+            return overlap_x and overlap_y
+
+        def is_outside_room(furniture, room_width, room_length):
+            # Check if the furniture is outside the room based on the bottom middle reference
+            f_x = furniture["X"]
+            f_y = furniture["Y"]
+            f_width = furniture["Width"]
+            f_depth = furniture["Depth"]
+
+            # Ensure the furniture stays within the room boundaries
+            return not (
+                0 <= f_x - f_width / 2 <= room_width and
+                0 <= f_y - f_depth / 2 <= room_length
+            )
+
+        current_furniture = arrangement["Furniture"][current_furniture_index]
+        room_width = arrangement["Room"]["Width"]
+        room_length = arrangement["Room"]["Length"]
+
+        # Check if the current furniture is outside the room
+        if is_outside_room(current_furniture, room_width, room_length):
+            return -1  # Penalize for being outside the room
+
+        # Check for collisions with other furniture
+        for i, other_furniture in enumerate(arrangement["Furniture"]):
+            if i != current_furniture_index and is_collision(current_furniture, other_furniture):
+                return -1  # Penalize for collisions
+
+        # Reward for being inside the room and no collisions
+        return 1
 
 if __name__ == "__main__":
     # assert embeddings is not None, "Embeddings failed to load"
@@ -249,7 +280,7 @@ if __name__ == "__main__":
     log_path = f"logs/{int(time.time())}/"
     os.makedirs(models_path, exist_ok=True)
     os.makedirs(log_path, exist_ok=True)
-    model = PPO("MlpPolicy", env, verbose=1, tensorboard_log=log_path)
+    model = PPO("MlpPolicy", env, ent_coef=0.01, verbose=1, tensorboard_log=log_path)
     TIMESTEPS = 10000
     episodes = 0
     while episodes < 1000000:
