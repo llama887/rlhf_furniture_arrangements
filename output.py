@@ -202,9 +202,9 @@ if __name__ == "__main__":
     selections_directory = "./selections"
     max_indices_path = os.path.join(selections_directory, "max_indices.json")
     model_path = (
-        "models/1728166503/1190000.zip"  # Replace with your trained model's path
+        "models/1728174392/2980000.zip"  # Replace with your trained model's path
     )
-    specific_selection = "selection_5.json"  # Use the specific selection file you want
+    specific_selection = "selection_10.json"  # Use the specific selection file you want
     max_room_width = 144
     max_room_length = 144
     max_room_height = 120

@@ -1,31 +1,31 @@
 {
     "Room": {
-        "Width": 128,
-        "Length": 144,
-        "Height": 119,
-        "Style": 11,
-        "Type": 0
+        "Width": 138,
+        "Length": 106,
+        "Height": 118,
+        "Style": 4,
+        "Type": 1
     },
     "Furniture": [
         {
-            "ID": 45278,
-            "Style": 52,
-            "Width": 65,
-            "Depth": 33,
-            "Height": 91,
-            "X": 85,
-            "Y": 75,
-            "Theta": 280
+            "ID": 4488,
+            "Style": 20,
+            "Width": 79,
+            "Depth": 39,
+            "Height": 52,
+            "X": 55,
+            "Y": 55,
+            "Theta": 100
         },
         {
-            "ID": 4842,
-            "Style": 70,
-            "Width": 15,
-            "Depth": 19,
-            "Height": 92,
-            "X": 45,
-            "Y": 10,
-            "Theta": 320
+            "ID": 54911,
+            "Style": 58,
+            "Width": 78,
+            "Depth": 15,
+            "Height": 40,
+            "X": 95,
+            "Y": 55,
+            "Theta": 270
         }
     ]
 }
