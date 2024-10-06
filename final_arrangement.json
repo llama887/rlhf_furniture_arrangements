@@ -1,8 +1,8 @@
 {
     "Room": {
-        "Width": 91,
-        "Length": 101,
-        "Height": 108,
+        "Width": 128,
+        "Length": 144,
+        "Height": 119,
         "Style": 11,
         "Type": 0
     },

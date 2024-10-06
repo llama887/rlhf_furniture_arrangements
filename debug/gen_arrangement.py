@@ -16,7 +16,7 @@ max_indices = {
     "Furniture Width": 3105,
     "Furniture Depth": 1515,
     "Furniture Height": 17975,
-    "Furniture Per Room": 2,
+    "Furniture Per Room": 5,
     "Number of Selections": 10,
 }
 print(max_indices)

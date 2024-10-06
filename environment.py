@@ -10,8 +10,8 @@ from gymnasium import spaces
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_checker import check_env
 
-MIN_ROOM_WIDTH = 60
-MIN_ROOM_LENGTH = 60
+MIN_ROOM_WIDTH = 100
+MIN_ROOM_LENGTH = 100
 MIN_ROOM_HEIGHT = 100
 MIN_FURNITURE_NUMBER = 2
 MIN_FURNITURE_STEP = 5
@@ -262,40 +262,60 @@ class ArrangementEnv(gym.Env):
 
 
 def reward(arrangement, current_furniture_index):
-    def is_collision(furniture1, furniture2):
-        # Bottom middle as the reference point for furniture1 (current furniture)
-        f1_x = furniture1["X"]
-        f1_y = furniture1["Y"]
-        f1_width = furniture1["Width"]
-        f1_depth = furniture1["Depth"]
-
-        # Bottom middle as the reference point for furniture2 (other furniture)
-        f2_x = furniture2["X"]
-        f2_y = furniture2["Y"]
-        f2_width = furniture2["Width"]
-        f2_depth = furniture2["Depth"]
-
-        # Check for overlap in the X and Y axes
-        overlap_x = abs(f1_x - f2_x) < (f1_width + f2_width) / 2
-        overlap_y = abs(f1_y - f2_y) < (f1_depth + f2_depth) / 2
-        return overlap_x and overlap_y
-
-    def is_outside_room(furniture, room_width, room_length):
-        # Check if the furniture is outside the room based on the bottom middle reference
-        f_x = furniture["X"]
-        f_y = furniture["Y"]
-        f_width = furniture["Width"]
-        f_depth = furniture["Depth"]
-
-        # Ensure the furniture stays within the room boundaries
-        return not (
-            0 <= f_x - f_width / 2 <= room_width
-            and 0 <= f_y - f_depth / 2 <= room_length
-        )
-
     current_furniture = arrangement["Furniture"][current_furniture_index]
     room_width = arrangement["Room"]["Width"]
     room_length = arrangement["Room"]["Length"]
+
+    # Helper function to get the four corners of a rectangle after rotation
+    def get_rectangle_corners(furniture):
+        cx, cy = furniture["X"], furniture["Y"]
+        w, h = furniture["Width"] / 2, furniture["Depth"] / 2
+        theta = np.radians(furniture["Theta"])
+
+        # The four corners relative to the center, before rotation
+        corners = np.array([[-w, -h], [w, -h], [w, h], [-w, h]])
+
+        # Rotation matrix
+        rotation_matrix = np.array(
+            [[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]]
+        )
+
+        # Rotate and translate corners
+        rotated_corners = np.dot(corners, rotation_matrix) + [cx, cy]
+
+        return rotated_corners
+
+    # Check if the furniture is outside the room based on rotated corners
+    def is_outside_room(furniture, room_width, room_length):
+        corners = get_rectangle_corners(furniture)
+        for corner in corners:
+            if not (0 <= corner[0] <= room_width and 0 <= corner[1] <= room_length):
+                return True  # If any corner is outside the room, it's outside
+        return False
+
+    # Check for collision between two pieces of furniture using SAT
+    def is_collision(furniture1, furniture2):
+        # Get the corners of both furniture items
+        rect1_corners = get_rectangle_corners(furniture1)
+        rect2_corners = get_rectangle_corners(furniture2)
+
+        # Separating Axis Theorem (SAT) checks for both rectangles
+        for rect_corners in [rect1_corners, rect2_corners]:
+            for i in range(4):
+                # Get the edge vector
+                edge = rect_corners[i] - rect_corners[i - 1]
+                # Get the perpendicular vector (axis to project onto)
+                axis = np.array([-edge[1], edge[0]])
+
+                # Project both rectangles onto the axis
+                proj1 = np.dot(rect1_corners, axis)
+                proj2 = np.dot(rect2_corners, axis)
+
+                # Check for overlap in the projections
+                if max(proj1) < min(proj2) or max(proj2) < min(proj1):
+                    return False  # Found a separating axis
+
+        return True  # No separating axis found, the rectangles must overlap
 
     # Check if the current furniture is outside the room
     if is_outside_room(current_furniture, room_width, room_length):

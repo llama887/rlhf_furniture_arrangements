@@ -192,8 +192,8 @@ def visualize_furniture(arrangement, reward):
     else:
         ax.legend(handles=[furniture_patch])
 
-    ax.set_axis_off()
-    plt.grid(False)
+    # ax.set_axis_off()
+    plt.grid(True)
     plt.gca().set_aspect("equal", adjustable="box")
     plt.show()
 
