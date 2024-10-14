@@ -45,59 +45,36 @@ class ArrangementEnv(gym.Env):
         self.truncated = False
         self.terminated = False
 
-        # Action space: [Terminate episode, X Position, Y Position, Angle]
+        # Action space: [-1, 1] for X, Y, Theta, plus Terminate flag
         self.action_space = spaces.Box(
-            low=np.array([0, 0, 0, 0]),
-            high=np.array([1, self.max_room_width, self.max_room_length, 360]),
+            low=-1 * np.ones(3 * self.max_furniture_per_room + 1),
+            high=1 * np.ones(3 * self.max_furniture_per_room + 1),
             dtype=np.float32,
         )
 
-        # Observation space
+        # Observation space: Normalize everything to [-1, 1]
         self.observation_space = spaces.Box(
             low=np.concatenate(
                 [
-                    np.array([MIN_ROOM_WIDTH, MIN_ROOM_LENGTH, MIN_ROOM_HEIGHT, 0, 0]),
-                    np.tile(
-                        np.array([0, 0, 0, 0, 0, 0, 0, 0]), self.max_furniture_per_room
-                    ),
+                    -1
+                    * np.ones(
+                        5
+                    ),  # Room properties (Width, Length, Height, Style, Type)
+                    -1
+                    * np.ones(8 * self.max_furniture_per_room),  # Furniture properties
                 ]
             ),
-            high=np.concatenate(
-                [
-                    np.array(
-                        [
-                            self.max_room_width,
-                            self.max_room_length,
-                            self.max_room_height,
-                            self.max_room_style,
-                            self.max_room_type,
-                        ]
-                    ),
-                    np.tile(
-                        np.array(
-                            [
-                                self.max_furniture_id + 1,
-                                self.max_furniture_style + 1,
-                                self.max_furniture_width,
-                                self.max_furniture_depth,
-                                self.max_furniture_height,
-                                self.max_room_width,
-                                self.max_room_length,
-                                360,
-                            ]
-                        ),
-                        self.max_furniture_per_room,
-                    ),
-                ]
-            ),
+            high=np.ones(5 + 8 * self.max_furniture_per_room),
             dtype=np.float32,
         )
 
     def step(self, action):
-        self.terminated = bool(action[0] == 1)
-        self.truncated = self.current_furniture_number >= self.max_furniture_per_room
+        self.terminated = bool(
+            action[-1] > 0
+        )  # Termination flag is now normalized, use >0 for terminate
+        self.truncated = False
 
-        if self.terminated or self.truncated:
+        if self.terminated:
             info = {}
             return (
                 np.concatenate(
@@ -109,13 +86,21 @@ class ArrangementEnv(gym.Env):
                 info,
             )
 
-        furniture_x = action[1]
-        furniture_y = action[2]
-        furniture_theta = action[3]
-        self.furniture_observation[self.current_furniture_number][5] = furniture_x
-        self.furniture_observation[self.current_furniture_number][6] = furniture_y
-        self.furniture_observation[self.current_furniture_number][7] = furniture_theta
+        # Rescale actions from normalized [-1, 1] range back to the original range
+        for i in range(self.max_furniture_per_room):
+            furniture_x = (
+                (action[3 * i] + 1) / 2 * self.max_room_width
+            )  # Rescale to [0, max_room_width]
+            furniture_y = (
+                (action[3 * i + 1] + 1) / 2 * self.max_room_length
+            )  # Rescale to [0, max_room_length]
+            furniture_theta = (action[3 * i + 2] + 1) / 2 * 360  # Rescale to [0, 360]
 
+            self.furniture_observation[i][5] = furniture_x
+            self.furniture_observation[i][6] = furniture_y
+            self.furniture_observation[i][7] = furniture_theta
+
+        # Evaluate the reward based on all furniture at once
         arrangement = {
             "Room": {
                 "Width": self.room_observation[0],
@@ -139,9 +124,9 @@ class ArrangementEnv(gym.Env):
             ],
         }
 
-        arrangement_reward = reward(arrangement, self.current_furniture_number)
-        self.current_furniture_number += 1
-        self.reward += arrangement_reward
+        arrangement_reward = reward(arrangement)
+        self.reward = arrangement_reward  # Since all furniture is placed at once, the reward is calculated based on the final placement
+
         info = {}
         return (
             np.concatenate(
@@ -195,22 +180,95 @@ class ArrangementEnv(gym.Env):
 
         self.current_furniture_number = 0
         self.reward = 0
-        self.room_observation = np.array(
-            [room_width, room_length, room_height, style, type], dtype=np.float32
+        self.room_observation = self._normalize_room_observation(
+            np.array(
+                [room_width, room_length, room_height, style, type], dtype=np.float32
+            )
         )
-        self.furniture_observation = np.array(
-            [list(furniture.values()) for furniture in furnitures], dtype=np.float32
+        self.furniture_observation = self._normalize_furniture_observation(
+            np.array(
+                [list(furniture.values()) for furniture in furnitures], dtype=np.float32
+            )
         )
         info = {}
+        print(
+            np.concatenate(
+                ((self.room_observation, self.furniture_observation.flatten()))
+            )
+        )
         return np.concatenate(
             (self.room_observation, self.furniture_observation.flatten())
         ), info
 
+    def _concatenate(self, value):
+        if value < -1:
+            return -1
+        if value > 1:
+            return 1
+        return value
 
-def reward(arrangement, current_furniture_index):
-    current_furniture = arrangement["Furniture"][current_furniture_index]
+    def _normalize_room_observation(self, room_observation):
+        # Normalize room properties to [-1, 1]
+        room_observation[0] = self._concatenate(
+            (room_observation[0] - MIN_ROOM_WIDTH)
+            / (self.max_room_width - MIN_ROOM_WIDTH)
+            * 2
+            - 1
+        )
+        room_observation[1] = self._concatenate(
+            (room_observation[1] - MIN_ROOM_LENGTH)
+            / (self.max_room_length - MIN_ROOM_LENGTH)
+            * 2
+            - 1
+        )
+        room_observation[2] = self._concatenate(
+            (room_observation[2] - MIN_ROOM_HEIGHT)
+            / (self.max_room_height - MIN_ROOM_HEIGHT)
+            * 2
+            - 1
+        )
+        room_observation[3] = self._concatenate(
+            (room_observation[3] / self.max_room_style) * 2 - 1
+        )
+        room_observation[4] = self._concatenate(
+            (room_observation[4] / self.max_room_type) * 2 - 1
+        )
+        return room_observation
+
+    def _normalize_furniture_observation(self, furniture_observation):
+        # Normalize furniture properties to [-1, 1]
+        for furniture in furniture_observation:
+            furniture[0] = self._concatenate(
+                (furniture[0] - 1) / (self.max_furniture_id + 1) * 2 - 1
+            )  # ID
+            furniture[1] = self._concatenate(
+                (furniture[1] - 1) / (self.max_furniture_style + 1) * 2 - 1
+            )  # Style
+            furniture[2] = self._concatenate(
+                (furniture[2] / self.max_furniture_width) * 2 - 1
+            )  # Width
+            furniture[3] = self._concatenate(
+                (furniture[3] / self.max_furniture_depth) * 2 - 1
+            )  # Depth
+            furniture[4] = self._concatenate(
+                (furniture[4] / self.max_furniture_height) * 2 - 1
+            )  # Height
+            furniture[5] = self._concatenate(
+                (furniture[5] / self.max_room_width) * 2 - 1
+            )  # X position
+            furniture[6] = self._concatenate(
+                (furniture[6] / self.max_room_length) * 2 - 1
+            )  # Y position
+            furniture[7] = self._concatenate((furniture[7] / 360) * 2 - 1)  # Theta
+        return furniture_observation
+
+
+def reward(arrangement):
     room_width = arrangement["Room"]["Width"]
     room_length = arrangement["Room"]["Length"]
+    furniture_list = arrangement["Furniture"]
+
+    total_reward = 0
 
     def get_rectangle_corners(furniture):
         cx, cy = furniture["X"], furniture["Y"]
@@ -224,7 +282,7 @@ def reward(arrangement, current_furniture_index):
         rotated_corners = np.dot(corners, rotation_matrix) + [cx, cy]
         return rotated_corners
 
-    def is_outside_room(furniture, room_width, room_length):
+    def is_outside_room(furniture):
         corners = get_rectangle_corners(furniture)
         for corner in corners:
             if not (0 <= corner[0] <= room_width and 0 <= corner[1] <= room_length):
@@ -248,16 +306,22 @@ def reward(arrangement, current_furniture_index):
 
         return True
 
-    if is_outside_room(current_furniture, room_width, room_length):
-        return -1
+    for i, furniture in enumerate(furniture_list):
+        # Check if the furniture is outside the room
+        if is_outside_room(furniture):
+            total_reward -= 1
+        else:
+            non_colliding = True
+            # Check for collisions with all other furniture
+            for j, other_furniture in enumerate(furniture_list):
+                if i != j and is_collision(furniture, other_furniture):
+                    non_colliding = False
+                    total_reward -= 1  # Penalize for each collision
+                    break
+            if non_colliding:
+                total_reward += 1  # Reward for no collisions
 
-    for i, other_furniture in enumerate(arrangement["Furniture"]):
-        if i != current_furniture_index and is_collision(
-            current_furniture, other_furniture
-        ):
-            return -1
-
-    return 1
+    return total_reward
 
 
 if __name__ == "__main__":
