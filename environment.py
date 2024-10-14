@@ -69,16 +69,21 @@ class ArrangementEnv(gym.Env):
         )
 
     def step(self, action):
-        self.terminated = bool(
-            action[-1] > 0
-        )  # Termination flag is now normalized, use >0 for terminate
+        self.terminated = bool(action[-1] > 0)
         self.truncated = False
 
         if self.terminated:
             info = {}
+            # Ensure observations are normalized before returning
+            normalized_room_obs = self._normalize_room_observation(
+                self.room_observation
+            )
+            normalized_furniture_obs = self._normalize_furniture_observation(
+                self.furniture_observation
+            )
             return (
                 np.concatenate(
-                    (self.room_observation, self.furniture_observation.flatten())
+                    (normalized_room_obs, normalized_furniture_obs.flatten())
                 ),
                 self.reward,
                 self.terminated,
@@ -96,11 +101,12 @@ class ArrangementEnv(gym.Env):
             )  # Rescale to [0, max_room_length]
             furniture_theta = (action[3 * i + 2] + 1) / 2 * 360  # Rescale to [0, 360]
 
+            # Store unscaled (real-world) values
             self.furniture_observation[i][5] = furniture_x
             self.furniture_observation[i][6] = furniture_y
             self.furniture_observation[i][7] = furniture_theta
 
-        # Evaluate the reward based on all furniture at once
+        # Evaluate the reward based on all furniture at once (using unscaled values)
         arrangement = {
             "Room": {
                 "Width": self.room_observation[0],
@@ -128,10 +134,15 @@ class ArrangementEnv(gym.Env):
         self.reward = arrangement_reward  # Since all furniture is placed at once, the reward is calculated based on the final placement
 
         info = {}
+
+        # Normalize observations before returning to the agent
+        normalized_room_obs = self._normalize_room_observation(self.room_observation)
+        normalized_furniture_obs = self._normalize_furniture_observation(
+            self.furniture_observation
+        )
+
         return (
-            np.concatenate(
-                (self.room_observation, self.furniture_observation.flatten())
-            ),
+            np.concatenate((normalized_room_obs, normalized_furniture_obs.flatten())),
             self.reward,
             self.terminated,
             self.truncated,
@@ -191,11 +202,6 @@ class ArrangementEnv(gym.Env):
             )
         )
         info = {}
-        print(
-            np.concatenate(
-                ((self.room_observation, self.furniture_observation.flatten()))
-            )
-        )
         return np.concatenate(
             (self.room_observation, self.furniture_observation.flatten())
         ), info
