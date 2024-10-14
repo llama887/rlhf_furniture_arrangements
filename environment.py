@@ -1,7 +1,6 @@
 import json
 import os
 import random
-import time
 from random import randint
 
 import gymnasium as gym
@@ -333,16 +332,38 @@ def reward(arrangement):
 if __name__ == "__main__":
     env = ArrangementEnv("./selections", 144, 144, 120)
     check_env(env)
-    models_path = f"models/{int(time.time())}/"
-    log_path = f"logs/{int(time.time())}/"
-    os.makedirs(models_path, exist_ok=True)
+
+    model_path = "models/ppo_arrangement"
+    log_path = "logs/ppo_arrangement"
+    checkpoint_path = "checkpoints/ppo_arrangement"
+
+    os.makedirs(model_path, exist_ok=True)
     os.makedirs(log_path, exist_ok=True)
-    model = PPO("MlpPolicy", env, ent_coef=0.01, verbose=1, tensorboard_log=log_path)
+    os.makedirs(checkpoint_path, exist_ok=True)
+
+    # Load existing model if available
+    try:
+        model = PPO.load(f"{checkpoint_path}/last_checkpoint", env=env)
+        print("Loaded model from checkpoint.")
+    except FileNotFoundError:
+        model = PPO(
+            "MlpPolicy", env, ent_coef=0.01, verbose=1, tensorboard_log=log_path
+        )
+        print("Training a new model.")
+
     TIMESTEPS = 10000
-    episodes = 0
-    while episodes < 1000000:
-        episodes += 1
+    save_interval = 100000  # Save every 100,000 timesteps
+    total_timesteps = 1000000
+
+    for episode in range(1, total_timesteps // TIMESTEPS + 1):
         model.learn(
             total_timesteps=TIMESTEPS, reset_num_timesteps=False, tb_log_name="PPO"
         )
-        model.save(f"{models_path}/{TIMESTEPS*episodes}")
+
+        # Save the model at checkpoints
+        if episode * TIMESTEPS % save_interval == 0:
+            model.save(f"{model_path}/ppo_arrangement_{episode * TIMESTEPS}")
+            model.save(
+                f"{checkpoint_path}/last_checkpoint"
+            )  # Always overwrite last checkpoint
+            print(f"Model saved at {episode * TIMESTEPS} timesteps.")
