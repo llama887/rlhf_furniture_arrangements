@@ -13,7 +13,10 @@ class RoomObservations:
         self.max_room_height = max_room_height
 
     def get_unnormalized_array(self):
-        return np.array([self.width, self.length, self.height, self.style, self.type])
+        return np.array(
+            [self.width, self.length, self.height, self.style, self.type],
+            dtype=np.float32,
+        )
 
     def get_normalized_array(self):
         def normalize(value, max):
@@ -87,7 +90,8 @@ class FurnitureObservations:
                     normalize(self.x, max_furniture_x),
                     normalize(self.y, max_furniture_y),
                     normalize(self.theta, 360),
-                ]
+                ],
+                dtype=np.float32,
             )
 
     def __init__(
@@ -124,7 +128,8 @@ class FurnitureObservations:
 
     def get_unnormalized_array(self):
         return np.array(
-            [furniture.get_unnormalized_array() for furniture in self.furnitures]
+            [furniture.get_unnormalized_array() for furniture in self.furnitures],
+            dtype=np.float32,
         )
 
     def get_normalized_array(self):
@@ -138,5 +143,6 @@ class FurnitureObservations:
                     self.max_furniture_y,
                 )
                 for furniture in self.furnitures
-            ]
+            ],
+            dtype=np.float32,
         )

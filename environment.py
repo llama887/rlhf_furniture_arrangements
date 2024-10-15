@@ -70,13 +70,14 @@ class ArrangementEnv(gym.Env):
                 [
                     np.ones(3),  # Continuous Room properties (Width, Length, Height)
                     np.array(
-                        [self.max_room_style, self.max_room_type]
+                        [self.max_room_style, self.max_room_type], dtype=np.float32
                     ),  # Max for Categorical Room properties (Style, Type)
                     np.tile(
                         np.concatenate(
                             [
                                 np.array(
-                                    [self.max_furniture_id, self.max_furniture_style]
+                                    [self.max_furniture_id, self.max_furniture_style],
+                                    dtype=np.float32,
                                 ),  # Categorical Furniture properties (ID, Style)
                                 np.ones(
                                     6
@@ -103,7 +104,7 @@ class ArrangementEnv(gym.Env):
                 np.concatenate(
                     (
                         self.room_observation.get_normalized_array(),
-                        self.furniture_observation.get_normalized_array.flatten(),
+                        self.furniture_observation.get_normalized_array().flatten(),
                     )
                 ),
                 self.reward,
@@ -180,7 +181,8 @@ class ArrangementEnv(gym.Env):
                         0,
                     ]
                     for furniture in furnitures
-                ]
+                ],
+                dtype=np.float32,
             ).flatten(),
             self.max_furniture_id,
             self.max_furniture_style,
