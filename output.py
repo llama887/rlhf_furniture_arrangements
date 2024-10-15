@@ -7,9 +7,6 @@ import numpy as np
 from stable_baselines3 import PPO
 
 from environment import (
-    MIN_ROOM_HEIGHT,
-    MIN_ROOM_LENGTH,
-    MIN_ROOM_WIDTH,
     ArrangementEnv,
 )
 
@@ -41,49 +38,29 @@ def generate_arrangement_from_model(
         done = terminated or truncated
 
     # Unscale room observations before outputting
+    room_observation = env.room_observation.get_unnormalized_array()
     room_observations_dictionary = {
-        "Width": int(
-            (env.room_observation[0] + 1) / 2 * (max_room_width - MIN_ROOM_WIDTH)
-            + MIN_ROOM_WIDTH
-        ),
-        "Length": int(
-            (env.room_observation[1] + 1) / 2 * (max_room_length - MIN_ROOM_LENGTH)
-            + MIN_ROOM_LENGTH
-        ),
-        "Height": int(
-            (env.room_observation[2] + 1) / 2 * (max_room_height - MIN_ROOM_HEIGHT)
-            + MIN_ROOM_HEIGHT
-        ),
-        "Style": int(
-            (env.room_observation[3] + 1) / 2 * env.max_room_style
-        ),  # Unscale Room Style
-        "Type": int(
-            (env.room_observation[4] + 1) / 2 * env.max_room_type
-        ),  # Unscale Room Type
+        "Width": int(room_observation[0]),
+        "Length": int(room_observation[1]),
+        "Height": int(room_observation[2]),
+        "Style": int(room_observation[3]),  # Unscale Room Style
+        "Type": int(room_observation[4]),  # Unscale Room Type
     }
 
+    furniture_observations = env.furniture_observation.furnitures
     furniture_observations_dictionary = []
-    for f in env.furniture_observation:
+    for f in furniture_observations:
+        unnormalized_furniture = f.get_unnormalized_array()
         furniture_observations_dictionary.append(
             {
-                "ID": int(
-                    (f[0] + 1) / 2 * env.max_furniture_id + 1
-                ),  # Unscale Furniture ID
-                "Style": int(
-                    (f[1] + 1) / 2 * env.max_furniture_style + 1
-                ),  # Unscale Furniture Style
-                "Width": int(
-                    (f[2] + 1) / 2 * env.max_furniture_width
-                ),  # Unscale Furniture Width
-                "Depth": int(
-                    (f[3] + 1) / 2 * env.max_furniture_depth
-                ),  # Unscale Furniture Depth
-                "Height": int(
-                    (f[4] + 1) / 2 * env.max_furniture_height
-                ),  # Unscale Furniture Height
-                "X": int((f[5] + 1) / 2 * max_room_width),  # Unscale X Position
-                "Y": int((f[6] + 1) / 2 * max_room_length),  # Unscale Y Position
-                "Theta": int((f[7] + 1) / 2 * 360),  # Unscale Theta
+                "ID": int(unnormalized_furniture[0]),  # Unscale Furniture ID
+                "Style": int(unnormalized_furniture[1]),  # Unscale Furniture Style
+                "Width": int(unnormalized_furniture[2]),  # Unscale Furniture Width
+                "Depth": int(unnormalized_furniture[3]),  # Unscale Furniture Depth
+                "Height": int(unnormalized_furniture[4]),  # Unscale Furniture Height
+                "X": int(unnormalized_furniture[5]),  # Unscale X Position
+                "Y": int(unnormalized_furniture[6]),  # Unscale Y Position
+                "Theta": int(unnormalized_furniture[7]),  # Unscale Theta
             }
         )
 
@@ -209,7 +186,6 @@ def visualize_furniture(arrangement, reward):
     else:
         ax.legend(handles=[furniture_patch])
 
-    # ax.set_axis_off()
     plt.grid(True)
     plt.gca().set_aspect("equal", adjustable="box")
     plt.show()
@@ -218,8 +194,8 @@ def visualize_furniture(arrangement, reward):
 if __name__ == "__main__":
     selections_directory = "./selections"
     max_indices_path = os.path.join(selections_directory, "max_indices.json")
-    model_path = "models/ppo_arrangement/ppo_arrangement_1000000.zip"  # Replace with your trained model's path
-    specific_selection = "selection_1.json"  # Use the specific selection file you want
+    model_path = "models/ppo_arrangement/ppo_arrangement_100000.zip"  # Replace with your trained model's path
+    specific_selection = "selection_2.json"  # Use the specific selection file you want
     max_room_width = 144
     max_room_length = 144
     max_room_height = 120

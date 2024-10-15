@@ -1,25 +1,25 @@
 {
     "Room": {
-        "Width": 100,
-        "Length": 100,
-        "Height": 100,
-        "Style": 0,
-        "Type": 0
+        "Width": 142,
+        "Length": 137,
+        "Height": 115,
+        "Style": 14,
+        "Type": 1
     },
     "Furniture": [
         {
-            "ID": 1,
-            "Style": 1,
-            "Width": 0,
-            "Depth": 0,
-            "Height": 0,
+            "ID": 45389,
+            "Style": 74,
+            "Width": 89,
+            "Depth": 53,
+            "Height": 51,
             "X": 0,
             "Y": 0,
             "Theta": 0
         },
         {
-            "ID": 1,
-            "Style": 1,
+            "ID": -1,
+            "Style": -1,
             "Width": 0,
             "Depth": 0,
             "Height": 0,

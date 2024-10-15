@@ -98,6 +98,18 @@ class ArrangementEnv(gym.Env):
         self.terminated = bool(action[-1] > 0)
         self.truncated = False
 
+        for i, furniture in enumerate(self.furniture_observation.furnitures):
+            furniture.x = (
+                (action[i * 3] + 1) / 2 * self.max_room_width
+            )  # Rescale to room width
+            furniture.y = (
+                (action[i * 3 + 1] + 1) / 2 * self.max_room_length
+            )  # Rescale to room length
+            furniture.theta = (
+                (action[i * 3 + 2] + 1) / 2 * 360
+            )  # Rescale theta to [0, 360] degrees
+        self.reward = reward(self.room_observation, self.furniture_observation)
+
         if self.terminated:
             info = {}
             return (
@@ -112,9 +124,6 @@ class ArrangementEnv(gym.Env):
                 self.truncated,
                 info,
             )
-
-        arrangement_reward = reward(self.room_observation, self.furniture_observation)
-        self.reward = arrangement_reward  # Since all furniture is placed at once, the reward is calculated based on the final placement
 
         info = {}
 
