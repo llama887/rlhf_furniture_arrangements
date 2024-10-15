@@ -42,7 +42,6 @@ class ArrangementEnv(gym.Env):
         self.room_observation = None
         self.furniture_observation = None
         self.current_furniture_number = 0
-        self.reward = 0
         self.truncated = False
         self.terminated = False
 
@@ -108,7 +107,6 @@ class ArrangementEnv(gym.Env):
             furniture.theta = (
                 (action[i * 3 + 2] + 1) / 2 * 360
             )  # Rescale theta to [0, 360] degrees
-        self.reward = reward(self.room_observation, self.furniture_observation)
 
         if self.terminated:
             info = {}
@@ -119,7 +117,7 @@ class ArrangementEnv(gym.Env):
                         self.furniture_observation.get_normalized_array().flatten(),
                     )
                 ),
-                self.reward,
+                reward(self.room_observation, self.furniture_observation),
                 self.terminated,
                 self.truncated,
                 info,
@@ -134,7 +132,7 @@ class ArrangementEnv(gym.Env):
                     self.furniture_observation.get_normalized_array().flatten(),
                 )
             ),
-            self.reward,
+            -0.1,  # -1 reward until the episode is terminated, punishes taking too long
             self.terminated,
             self.truncated,
             info,
@@ -167,7 +165,6 @@ class ArrangementEnv(gym.Env):
         furnitures = selection["Furniture"]
 
         self.current_furniture_number = 0
-        self.reward = 0
         self.room_observation = observations.RoomObservations(
             np.array(
                 [room_width, room_length, room_height, style, type], dtype=np.float32
@@ -255,7 +252,7 @@ def reward(room_observation, furniture_observation):
     for i, furniture in enumerate(furniture_observation.furnitures):
         # Check if the furniture is outside the room
         if is_outside_room(furniture):
-            total_reward -= 1
+            total_reward -= 10
         else:
             non_colliding = True
             # Check for collisions with all other furniture
@@ -288,7 +285,7 @@ if __name__ == "__main__":
         print("Loaded model from checkpoint.")
     except FileNotFoundError:
         model = PPO(
-            "MlpPolicy", env, ent_coef=0.01, verbose=1, tensorboard_log=log_path
+            "MlpPolicy", env, ent_coef=0.05, verbose=1, tensorboard_log=log_path
         )
         print("Training a new model.")
 

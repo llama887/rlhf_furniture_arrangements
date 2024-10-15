@@ -6,9 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from stable_baselines3 import PPO
 
-from environment import (
-    ArrangementEnv,
-)
+from environment import ArrangementEnv
 
 
 def generate_arrangement_from_model(
@@ -32,9 +30,11 @@ def generate_arrangement_from_model(
 
     # Step through the environment until termination
     done = False
+    cumulative_reward = 0  # Track cumulative reward over the episode
     while not done:
         action, _states = model.predict(obs, deterministic=True)
         obs, reward, terminated, truncated, info = env.step(action)
+        cumulative_reward += reward  # Accumulate reward
         done = terminated or truncated
 
     # Unscale room observations before outputting
@@ -76,7 +76,7 @@ def generate_arrangement_from_model(
         json.dump(arrangement, f, indent=4)
 
     print(f"Arrangement saved to {output_path}")
-    return arrangement, reward
+    return arrangement, cumulative_reward
 
 
 # Helper function to get the four corners of a rectangle after rotation
@@ -194,8 +194,8 @@ def visualize_furniture(arrangement, reward):
 if __name__ == "__main__":
     selections_directory = "./selections"
     max_indices_path = os.path.join(selections_directory, "max_indices.json")
-    model_path = "models/ppo_arrangement/ppo_arrangement_100000.zip"  # Replace with your trained model's path
-    specific_selection = "selection_2.json"  # Use the specific selection file you want
+    model_path = "models/ppo_arrangement/ppo_arrangement_300000.zip"  # Replace with your trained model's path
+    specific_selection = "selection_10.json"  # Use the specific selection file you want
     max_room_width = 144
     max_room_length = 144
     max_room_height = 120
