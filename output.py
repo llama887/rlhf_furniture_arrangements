@@ -7,11 +7,9 @@ import numpy as np
 from stable_baselines3 import PPO
 
 from environment import (
-    MIN_FURNITURE_STEP,
     MIN_ROOM_HEIGHT,
     MIN_ROOM_LENGTH,
     MIN_ROOM_WIDTH,
-    MIN_THETA_STEP,
     ArrangementEnv,
 )
 
@@ -42,34 +40,53 @@ def generate_arrangement_from_model(
         obs, reward, terminated, truncated, info = env.step(action)
         done = terminated or truncated
 
-    # Collect the final arrangement
+    # Unscale room observations before outputting
     room_observations_dictionary = {
-        "Width": int(env.room_observation[0] + MIN_ROOM_WIDTH),
-        "Length": int(env.room_observation[1] + MIN_ROOM_LENGTH),
-        "Height": int(env.room_observation[2] + MIN_ROOM_HEIGHT),
+        "Width": int(
+            (env.room_observation[0] + 1) / 2 * (max_room_width - MIN_ROOM_WIDTH)
+            + MIN_ROOM_WIDTH
+        ),
+        "Length": int(
+            (env.room_observation[1] + 1) / 2 * (max_room_length - MIN_ROOM_LENGTH)
+            + MIN_ROOM_LENGTH
+        ),
+        "Height": int(
+            (env.room_observation[2] + 1) / 2 * (max_room_height - MIN_ROOM_HEIGHT)
+            + MIN_ROOM_HEIGHT
+        ),
         "Style": int(
-            env.room_observation[3]
-        ),  # no -1 since the room style is always defined
-        "Type": int(env.room_observation[4]),
+            (env.room_observation[3] + 1) / 2 * env.max_room_style
+        ),  # Unscale Room Style
+        "Type": int(
+            (env.room_observation[4] + 1) / 2 * env.max_room_type
+        ),  # Unscale Room Type
     }
+
     furniture_observations_dictionary = []
     for f in env.furniture_observation:
         furniture_observations_dictionary.append(
             {
                 "ID": int(
-                    f[0] - 1
-                ),  # -1 since observation space back to embedding space is -1
+                    (f[0] + 1) / 2 * env.max_furniture_id + 1
+                ),  # Unscale Furniture ID
                 "Style": int(
-                    f[1] - 1
-                ),  # -1 since observation space back to embedding space is -1
-                "Width": int(f[2]),
-                "Depth": int(f[3]),
-                "Height": int(f[4]),
-                "X": int(f[5] * MIN_FURNITURE_STEP),
-                "Y": int(f[6] * MIN_FURNITURE_STEP),
-                "Theta": int(f[7] * MIN_THETA_STEP),
+                    (f[1] + 1) / 2 * env.max_furniture_style + 1
+                ),  # Unscale Furniture Style
+                "Width": int(
+                    (f[2] + 1) / 2 * env.max_furniture_width
+                ),  # Unscale Furniture Width
+                "Depth": int(
+                    (f[3] + 1) / 2 * env.max_furniture_depth
+                ),  # Unscale Furniture Depth
+                "Height": int(
+                    (f[4] + 1) / 2 * env.max_furniture_height
+                ),  # Unscale Furniture Height
+                "X": int((f[5] + 1) / 2 * max_room_width),  # Unscale X Position
+                "Y": int((f[6] + 1) / 2 * max_room_length),  # Unscale Y Position
+                "Theta": int((f[7] + 1) / 2 * 360),  # Unscale Theta
             }
         )
+
     arrangement = {
         "Room": room_observations_dictionary,
         "Furniture": furniture_observations_dictionary,
@@ -201,10 +218,8 @@ def visualize_furniture(arrangement, reward):
 if __name__ == "__main__":
     selections_directory = "./selections"
     max_indices_path = os.path.join(selections_directory, "max_indices.json")
-    model_path = (
-        "models/1728174392/2980000.zip"  # Replace with your trained model's path
-    )
-    specific_selection = "selection_10.json"  # Use the specific selection file you want
+    model_path = "models/ppo_arrangement/ppo_arrangement_1000000.zip"  # Replace with your trained model's path
+    specific_selection = "selection_1.json"  # Use the specific selection file you want
     max_room_width = 144
     max_room_length = 144
     max_room_height = 120
